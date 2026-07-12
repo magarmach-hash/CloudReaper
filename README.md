@@ -126,7 +126,6 @@ Real infrastructure has dependencies (EC2 inside a subnet inside a VPC). Deletin
 - [ ] After testing, verify in the AWS console that nothing is left running
 - [ ] Check for leftover CloudWatch Log Groups (not destroyed by `terraform destroy` unless explicitly managed)
 
-**Control plane cost:** $0 at this scale — Lambda and EventBridge scheduled rules are part of AWS's Always Free tier.
 
 ---
 
