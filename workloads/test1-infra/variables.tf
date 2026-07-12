@@ -19,5 +19,5 @@ variable "ttl_hours" {
 variable "project_name" {
   description = "Project identifier — must match the folder name"
   type        = string
-  default     = "example-project"
+  default     = "test1-infra"
 }

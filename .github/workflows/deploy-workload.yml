@@ -8,7 +8,8 @@ on:
         required: true
         type: choice
         options:
-          - example-project
+          - test1-infra
+          - test2-infra
       ttl_hours:
         description: "Time-to-live in hours"
         required: false

@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket         = "cloudreaper-state"
-    key            = "cloudreaper/example-project/terraform.tfstate"
+    key            = "cloudreaper/test1-infra/terraform.tfstate"
     region         = "ap-south-1"
     encrypt        = true
     use_lockfile   = true

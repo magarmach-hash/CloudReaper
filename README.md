@@ -29,6 +29,32 @@ Developer deploys with TTL tag
 
 ---
 
+## Why CloudReaper
+
+CloudReaper is a **reusable control plane**. Deploy it once, and any number of projects can use it — just drop your Terraform code into a folder and go.
+
+- **No code changes needed** to add new infrastructure — just create a new folder under `workloads/`
+- **Independent state files** — each project gets its own Terraform state (isolated via unique S3 backend keys in the same bucket), so multiple projects run simultaneously without conflicts
+- **Zero maintenance** — the control plane (Lambda + EventBridge) runs continuously and never needs updating
+- **Works with any Terraform config** — EC2, RDS, VPC, EKS, whatever you need. If Terraform can create it and it has tags, CloudReaper can manage its lifecycle
+
+### How to add your infrastructure
+
+1. Create a new folder under `workloads/` (e.g., `workloads/my-api/`)
+2. Add a `backend.tf` with a unique S3 key:
+   ```hcl
+   backend "s3" {
+     bucket = "cloudreaper-state"
+     key    = "cloudreaper/my-api/terraform.tfstate"
+     region = "ap-south-1"
+   }
+   ```
+3. Tag all resources with `project`, `expiry_time`, and `managed-by = "cloudreaper"`
+4. Add the folder name to `deploy-workload.yml` choices
+5. Deploy — Lambda will automatically detect and manage it
+
+---
+
 ## Architecture
 
 ### Control Plane (deploy once)
@@ -41,11 +67,25 @@ Developer deploys with TTL tag
 
 ### Workloads (deploy/destroy repeatedly, one folder per project)
 
-Each project lives in its own folder under `workloads/` with its own Terraform state (isolated via a unique S3 backend key). Resources are tagged with:
+Each project lives in its own folder under `workloads/` with its own Terraform state. Resources are tagged with:
 
 - `project = "<folder-name>"` — tells Lambda which project to destroy
 - `expiry_time = "<ISO 8601 UTC>"` — the source of truth for when to destroy
 - `managed-by = "cloudreaper"` — discoverability tag
+
+### State Isolation
+
+Multiple projects share one S3 bucket but each gets a unique state key:
+
+```
+cloudreaper-state (one bucket)
+├── cloudreaper/control-plane/terraform.tfstate
+├── cloudreaper/test1-infra/terraform.tfstate
+├── cloudreaper/test2-infra/terraform.tfstate
+└── cloudreaper/my-api/terraform.tfstate
+```
+
+No cross-project interference. Each project can be deployed, updated, and destroyed independently.
 
 ### GitHub Actions Pipelines
 
@@ -61,11 +101,10 @@ Each project lives in its own folder under `workloads/` with its own Terraform s
 
 ### Prerequisites
 
-- AWS account with budget alerts configured
 - GitHub repository with these secrets:
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`
-- A GitHub PAT with `repo` scope, stored in AWS Secrets Manager (the built-in `GITHUB_TOKEN` cannot fire `repository_dispatch` events)
+- A GitHub PAT with `repo` scope, stored in AWS Secrets Manager
 - An S3 bucket named `cloudreaper-state` (for Terraform state)
 - Terraform 1.10+ (installed by the workflows)
 
@@ -77,55 +116,25 @@ aws secretsmanager create-secret \
   --secret-string "ghp_your_token_here"
 ```
 
-Note the ARN from the output (you'll need it as a GitHub Actions variable).
+Note the ARN from the output.
 
 ### 2. Deploy the Control Plane
 
-Set a repository variable `CLOUDREAPER_SECRET_ARN` with the Secrets Manager ARN from step 1, then go to **Actions > CloudReaper — Setup Control Plane > Run workflow**, type `yes`, and run it.
+Set a GitHub **Variable** (not Secret) `CLOUDREAPER_SECRET_ARN` with the Secrets Manager ARN, then go to **Actions > CloudReaper — Setup Control Plane > Run workflow**, type `yes`, and run it.
 
 ### 3. Deploy a Workload
 
-Go to **Actions > CloudReaper — Deploy Workload > Run workflow**, pick a project and a TTL (in hours), and run it.
+Go to **Actions > CloudReaper — Deploy Workload > Run workflow**, pick a project and a TTL, and run it.
 
 ### 4. Watch It Work
 
 Lambda runs every 5 minutes. When resources expire, `destroy-workload.yml` triggers automatically.
-
-Or trigger a manual destroy via the GitHub CLI:
-
-```bash
-gh api repos/{owner}/{repo}/dispatches \
-  -f event_type=cloudreaper-destroy \
-  -f client_payload='{"project":"example-project"}'
-```
-
----
-
-## Adding a New Project
-
-1. Create a new folder under `workloads/` (e.g., `workloads/my-new-project/`)
-2. Add `backend.tf` with a unique S3 key (e.g., `cloudreaper/my-new-project/terraform.tfstate`)
-3. Tag all resources with `project`, `expiry_time`, and `managed-by = "cloudreaper"`
-4. Add the project name to the `deploy-workload.yml` workflow's `project` choice list
-
-Lambda will automatically detect and manage it — no code changes needed.
 
 ---
 
 ## Why Lambda Triggers Terraform Instead of Deleting Directly
 
 Real infrastructure has dependencies (EC2 inside a subnet inside a VPC). Deleting out of order fails. Terraform already solves dependency-ordered teardown via its state graph. Lambda's only job is *deciding when*, not *how*.
-
----
-
-## Cost Safety Checklist
-
-- [ ] Set up an AWS Budget with alerts at $1 and $5 **before** deploying
-- [ ] Use short TTLs (5-10 min) while testing the automation
-- [ ] Keep a manual `terraform destroy` ready as fallback
-- [ ] After testing, verify in the AWS console that nothing is left running
-- [ ] Check for leftover CloudWatch Log Groups (not destroyed by `terraform destroy` unless explicitly managed)
-
 
 ---
 
@@ -148,11 +157,16 @@ CloudReaper/
 │   └── lambda/
 │       └── scanner.py       # Tag scanning + GitHub dispatch logic
 ├── workloads/
-│   └── example-project/
-│       ├── main.tf          # VPC + EC2 with expiry tags
+│   ├── test1-infra/
+│   │   ├── main.tf          # EC2 with expiry tags
+│   │   ├── variables.tf     # expiry_time, ttl_hours, project_name
+│   │   ├── outputs.tf
+│   │   └── backend.tf       # S3 state: cloudreaper/test1-infra/
+│   └── test2-infra/
+│       ├── main.tf          # EC2 with expiry tags
 │       ├── variables.tf     # expiry_time, ttl_hours, project_name
 │       ├── outputs.tf
-│       └── backend.tf       # S3 state: cloudreaper/example-project/
+│       └── backend.tf       # S3 state: cloudreaper/test2-infra/
 └── .github/
     └── workflows/
         ├── setup-control-plane.yml
