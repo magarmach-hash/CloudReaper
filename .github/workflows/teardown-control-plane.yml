@@ -1,0 +1,50 @@
+name: "CloudReaper — Teardown Control Plane"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type 'destroy' to confirm you want to tear down the control plane"
+        required: true
+
+jobs:
+  teardown-control-plane:
+    name: Teardown Control Plane
+    runs-on: ubuntu-latest
+    if: inputs.confirm == 'destroy'
+
+    defaults:
+      run:
+        working-directory: control-plane
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-south-1' }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10"
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -lock=false
+
+      - name: Summary
+        run: |
+          echo "### Control Plane Teardown Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Lambda:** \`cloudreaper-lambda\` destroyed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **EventBridge:** \`cloudreaper-schedule\` destroyed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **IAM Role:** \`cloudreaper-lambda-role\` destroyed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "To re-deploy, run **Setup Control Plane** workflow." >> "$GITHUB_STEP_SUMMARY"
