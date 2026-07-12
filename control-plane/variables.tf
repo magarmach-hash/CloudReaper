@@ -7,16 +7,19 @@ variable "aws_region" {
 variable "github_owner" {
   description = "GitHub repository owner (user or org)"
   type        = string
+  default     = ""
 }
 
 variable "github_repo" {
   description = "GitHub repository name"
   type        = string
+  default     = ""
 }
 
 variable "github_secret_arn" {
   description = "ARN of the Secrets Manager secret containing the GitHub PAT"
   type        = string
+  default     = ""
 }
 
 variable "scan_interval" {
