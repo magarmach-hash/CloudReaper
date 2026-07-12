@@ -54,7 +54,7 @@ jobs:
           TF_VAR_expiry_time: ${{ steps.expiry.outputs.expiry_time }}
           TF_VAR_ttl_hours: ${{ inputs.ttl_hours }}
           TF_VAR_project_name: ${{ inputs.project }}
-          TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          TF_VAR_aws_region: ${{ vars.AWS_REGION || 'ap-south-1' }}
 
       - name: Summary
         run: |

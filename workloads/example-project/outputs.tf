@@ -8,16 +8,6 @@ output "public_ip" {
   value       = aws_instance.web.public_ip
 }
 
-output "vpc_id" {
-  description = "VPC ID"
-  value       = aws_vpc.main.id
-}
-
-output "subnet_id" {
-  description = "Public subnet ID"
-  value       = aws_subnet.public.id
-}
-
 output "expiry_time" {
   description = "When this workload expires"
   value       = var.expiry_time
