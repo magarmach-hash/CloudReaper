@@ -10,9 +10,14 @@ on:
         options:
           - example-project
       ttl_hours:
-        description: "Time-to-live in hours before auto-destroy"
-        required: true
-        default: "1"
+        description: "Time-to-live in hours"
+        required: false
+        default: "0"
+        type: string
+      ttl_minutes:
+        description: "Time-to-live in minutes"
+        required: false
+        default: "5"
         type: string
 
 jobs:
@@ -39,7 +44,7 @@ jobs:
       - name: Compute Expiry Time
         id: expiry
         run: |
-          EXPIRY=$(date -u -d "+${{ inputs.ttl_hours }} hours" +%Y-%m-%dT%H:%M:%SZ)
+          EXPIRY=$(date -u -d "+${{ inputs.ttl_hours }} hours +${{ inputs.ttl_minutes }} minutes" +%Y-%m-%dT%H:%M:%SZ)
           echo "expiry_time=$EXPIRY" >> "$GITHUB_OUTPUT"
           echo "Expiry set to: $EXPIRY"
 
@@ -61,6 +66,6 @@ jobs:
           echo "### Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Project:** \`${{ inputs.project }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **TTL:** \`${{ inputs.ttl_hours }}\` hours" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **TTL:** \`${{ inputs.ttl_hours }}\`h \`${{ inputs.ttl_minutes }}\`m" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Expires at:** \`${{ steps.expiry.outputs.expiry_time }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Resources tagged with:** \`project=${{ inputs.project }}\`, \`expiry_time=${{ steps.expiry.outputs.expiry_time }}\`, \`managed-by=cloudreaper\`" >> "$GITHUB_STEP_SUMMARY"
