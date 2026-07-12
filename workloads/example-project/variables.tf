@@ -7,6 +7,7 @@ variable "aws_region" {
 variable "expiry_time" {
   description = "Absolute UTC timestamp when this workload expires (ISO 8601)"
   type        = string
+  default     = "2099-01-01T00:00:00Z"
 }
 
 variable "ttl_hours" {
