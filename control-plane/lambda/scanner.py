@@ -94,7 +94,14 @@ def get_github_token():
     try:
         sm = boto3.client("secretsmanager")
         resp = sm.get_secret_value(SecretId=GITHUB_SECRET_ARN)
-        return resp["SecretString"]
+        secret_string = resp["SecretString"]
+        try:
+            secret_dict = json.loads(secret_string)
+            # Key-value secret — extract the first value
+            return next(iter(secret_dict.values()))
+        except (json.JSONDecodeError, StopIteration):
+            # Plain string secret — return as-is
+            return secret_string
     except Exception as exc:
         logger.error("Failed to retrieve GitHub token from Secrets Manager: %s", exc)
         return None
