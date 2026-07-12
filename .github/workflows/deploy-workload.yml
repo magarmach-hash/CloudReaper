@@ -1,0 +1,66 @@
+name: "CloudReaper — Deploy Workload"
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Project folder to deploy"
+        required: true
+        type: choice
+        options:
+          - example-project
+      ttl_hours:
+        description: "Time-to-live in hours before auto-destroy"
+        required: true
+        default: "1"
+        type: string
+
+jobs:
+  deploy-workload:
+    name: Deploy ${{ inputs.project }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10"
+
+      - name: Compute Expiry Time
+        id: expiry
+        run: |
+          EXPIRY=$(date -u -d "+${{ inputs.ttl_hours }} hours" +%Y-%m-%dT%H:%M:%SZ)
+          echo "expiry_time=$EXPIRY" >> "$GITHUB_OUTPUT"
+          echo "Expiry set to: $EXPIRY"
+
+      - name: Terraform Init
+        working-directory: workloads/${{ inputs.project }}
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: workloads/${{ inputs.project }}
+        run: terraform apply -auto-approve
+        env:
+          TF_VAR_expiry_time: ${{ steps.expiry.outputs.expiry_time }}
+          TF_VAR_ttl_hours: ${{ inputs.ttl_hours }}
+          TF_VAR_project_name: ${{ inputs.project }}
+          TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Summary
+        run: |
+          echo "### Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Project:** \`${{ inputs.project }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **TTL:** \`${{ inputs.ttl_hours }}\` hours" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Expires at:** \`${{ steps.expiry.outputs.expiry_time }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Resources tagged with:** \`project=${{ inputs.project }}\`, \`expiry_time=${{ steps.expiry.outputs.expiry_time }}\`, \`managed-by=cloudreaper\`" >> "$GITHUB_STEP_SUMMARY"

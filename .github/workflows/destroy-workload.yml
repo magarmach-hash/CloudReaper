@@ -1,0 +1,53 @@
+name: "CloudReaper — Destroy Workload"
+
+on:
+  repository_dispatch:
+    types: [cloudreaper-destroy]
+
+jobs:
+  destroy-workload:
+    name: Destroy ${{ github.event.client_payload.project }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate Payload
+        id: payload
+        run: |
+          PROJECT="${{ github.event.client_payload.project }}"
+          if [ -z "$PROJECT" ]; then
+            echo "::error::No project name in client_payload"
+            exit 1
+          fi
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "Destroying project: $PROJECT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10"
+
+      - name: Terraform Init
+        working-directory: workloads/${{ steps.payload.outputs.project }}
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: workloads/${{ steps.payload.outputs.project }}
+        run: terraform destroy -auto-approve
+
+      - name: Summary
+        run: |
+          echo "### Destroy Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Project:** \`${{ steps.payload.outputs.project }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** CloudReaper automated scan" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Dispatch event ID:** \`${{ github.event_id }}\`" >> "$GITHUB_STEP_SUMMARY"

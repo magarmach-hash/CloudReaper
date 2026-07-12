@@ -1,0 +1,22 @@
+variable "aws_region" {
+  description = "AWS region for workload resources"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "expiry_time" {
+  description = "Absolute UTC timestamp when this workload expires (ISO 8601)"
+  type        = string
+}
+
+variable "ttl_hours" {
+  description = "Time-to-live in hours (for display purposes; expiry_time is the source of truth)"
+  type        = number
+  default     = 1
+}
+
+variable "project_name" {
+  description = "Project identifier — must match the folder name"
+  type        = string
+  default     = "example-project"
+}
