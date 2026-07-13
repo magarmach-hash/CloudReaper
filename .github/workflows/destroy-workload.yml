@@ -42,7 +42,7 @@ jobs:
 
       - name: Terraform Destroy
         working-directory: workloads/${{ steps.payload.outputs.project }}
-        run: terraform destroy -auto-approve -lock=false
+        run: terraform destroy -auto-approve 
 
       - name: Summary
         run: |

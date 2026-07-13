@@ -1,10 +1,3 @@
-"""CloudReaper Scanner Lambda.
-
-Scans all AWS resources for an ``expiry_time`` tag, compares it to the
-current UTC time, and fires a GitHub ``repository_dispatch`` event for
-any project whose resources have expired.
-"""
-
 import json
 import logging
 import os
